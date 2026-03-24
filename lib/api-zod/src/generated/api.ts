@@ -66,6 +66,10 @@ export const GetMeResponse = zod.object({
  */
 export const GetDemoModeResponse = zod.object({
   demoMode: zod.boolean(),
+  companyType: zod
+    .string()
+    .optional()
+    .describe("saas | marketplace | subscription"),
 });
 
 /**
@@ -77,6 +81,25 @@ export const SetDemoModeBody = zod.object({
 
 export const SetDemoModeResponse = zod.object({
   demoMode: zod.boolean(),
+  companyType: zod
+    .string()
+    .optional()
+    .describe("saas | marketplace | subscription"),
+});
+
+/**
+ * @summary Switch demo company archetype
+ */
+export const SetDemoCompanyBody = zod.object({
+  companyType: zod.string().describe("saas | marketplace | subscription"),
+});
+
+export const SetDemoCompanyResponse = zod.object({
+  demoMode: zod.boolean(),
+  companyType: zod
+    .string()
+    .optional()
+    .describe("saas | marketplace | subscription"),
 });
 
 /**
@@ -106,14 +129,28 @@ export const GetDashboardMetricsResponse = zod.object({
   mrr: zod.number().describe("Monthly Recurring Revenue in dollars"),
   mrrGrowthRate: zod
     .number()
-    .describe("Month-over-month MRR growth percentage"),
+    .describe(
+      "Month-over-month MRR growth as a percentage (e.g. 11.4 means 11.4%)",
+    ),
   totalRevenue: zod.number().describe("Total revenue this month in dollars"),
+  prevMonthRevenue: zod
+    .number()
+    .describe("Total revenue previous month for comparison"),
   activeCustomers: zod.number(),
+  prevMonthCustomers: zod
+    .number()
+    .describe("Active customers last month for comparison"),
   activeSubscriptions: zod.number(),
-  churnRate: zod.number().describe("Monthly churn rate percentage"),
+  churnRate: zod
+    .number()
+    .describe("Monthly churn rate as a percentage (e.g. 2.4 means 2.4%)"),
   avgRevenuePerUser: zod.number(),
   totalInvoices: zod.number(),
   overdueInvoices: zod.number(),
+  mrrSparkline: zod
+    .array(zod.number())
+    .describe("Last 6 months MRR values for sparkline display"),
+  companyType: zod.string().optional().describe("Demo company archetype"),
 });
 
 /**
@@ -131,6 +168,22 @@ export const GetRevenueChartResponse = zod.object({
 });
 
 /**
+ * @summary Revenue breakdown by plan and segment
+ */
+export const GetRevenueBreakdownResponse = zod.object({
+  byPlan: zod.array(
+    zod.object({
+      plan: zod.string(),
+      revenue: zod.number(),
+      percentage: zod.number(),
+      customers: zod.number(),
+      color: zod.string(),
+    }),
+  ),
+  totalMrr: zod.number(),
+});
+
+/**
  * @summary Generate AI financial insights
  */
 export const GenerateInsightsResponse = zod.object({
@@ -140,17 +193,23 @@ export const GenerateInsightsResponse = zod.object({
       zod.object({
         month: zod.string(),
         projectedRevenue: zod.number(),
-        confidence: zod.string(),
+        confidence: zod.string().describe("High | Medium | Low"),
+        confidenceScore: zod
+          .number()
+          .optional()
+          .describe("0-100 confidence score"),
       }),
     ),
   }),
   risks: zod.object({
     summary: zod.string(),
     items: zod.array(zod.string()),
+    confidenceScore: zod.number().optional(),
   }),
   opportunities: zod.object({
     summary: zod.string(),
     items: zod.array(zod.string()),
+    confidenceScore: zod.number().optional(),
   }),
   recommendedActions: zod.object({
     summary: zod.string(),
@@ -168,6 +227,8 @@ export const GenerateWeeklyActionsResponse = zod.object({
       priority: zod.number(),
       action: zod.string(),
       rationale: zod.string(),
+      impact: zod.string().describe("High | Medium | Low"),
+      outcome: zod.string().describe("Expected outcome if action is completed"),
     }),
   ),
   generatedAt: zod.date(),
@@ -183,17 +244,23 @@ export const GetLatestInsightsResponse = zod.object({
       zod.object({
         month: zod.string(),
         projectedRevenue: zod.number(),
-        confidence: zod.string(),
+        confidence: zod.string().describe("High | Medium | Low"),
+        confidenceScore: zod
+          .number()
+          .optional()
+          .describe("0-100 confidence score"),
       }),
     ),
   }),
   risks: zod.object({
     summary: zod.string(),
     items: zod.array(zod.string()),
+    confidenceScore: zod.number().optional(),
   }),
   opportunities: zod.object({
     summary: zod.string(),
     items: zod.array(zod.string()),
+    confidenceScore: zod.number().optional(),
   }),
   recommendedActions: zod.object({
     summary: zod.string(),

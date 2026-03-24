@@ -146,6 +146,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/DemoModeStatus"
 
+  /stripe/demo-company:
+    post:
+      operationId: setDemoCompany
+      tags: [stripe]
+      summary: Switch demo company archetype
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetDemoCompanyBody"
+      responses:
+        "200":
+          description: Demo company updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoModeStatus"
+
   # ── Stripe Connection ─────────────────────────────────────────────────────
   /stripe/connect:
     post:
@@ -211,6 +230,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RevenueChartResponse"
+
+  /dashboard/revenue-breakdown:
+    get:
+      operationId: getRevenueBreakdown
+      tags: [dashboard]
+      summary: Revenue breakdown by plan and segment
+      responses:
+        "200":
+          description: Revenue breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevenueBreakdownResponse"
 
   # ── AI Insights ────────────────────────────────────────────────────────────
   /insights/generate:
@@ -330,6 +362,9 @@ components:
       properties:
         demoMode:
           type: boolean
+        companyType:
+          type: string
+          description: "saas | marketplace | subscription"
       required: [demoMode]
 
     SetDemoModeBody:
@@ -338,6 +373,14 @@ components:
         demoMode:
           type: boolean
       required: [demoMode]
+
+    SetDemoCompanyBody:
+      type: object
+      properties:
+        companyType:
+          type: string
+          description: "saas | marketplace | subscription"
+      required: [companyType]
 
     ConnectStripeBody:
       type: object
@@ -364,33 +407,50 @@ components:
           description: Monthly Recurring Revenue in dollars
         mrrGrowthRate:
           type: number
-          description: Month-over-month MRR growth percentage
+          description: Month-over-month MRR growth as a percentage (e.g. 11.4 means 11.4%)
         totalRevenue:
           type: number
           description: Total revenue this month in dollars
+        prevMonthRevenue:
+          type: number
+          description: Total revenue previous month for comparison
         activeCustomers:
           type: integer
+        prevMonthCustomers:
+          type: integer
+          description: Active customers last month for comparison
         activeSubscriptions:
           type: integer
         churnRate:
           type: number
-          description: Monthly churn rate percentage
+          description: Monthly churn rate as a percentage (e.g. 2.4 means 2.4%)
         avgRevenuePerUser:
           type: number
         totalInvoices:
           type: integer
         overdueInvoices:
           type: integer
+        mrrSparkline:
+          type: array
+          items:
+            type: number
+          description: Last 6 months MRR values for sparkline display
+        companyType:
+          type: string
+          description: Demo company archetype
       required:
         - mrr
         - mrrGrowthRate
         - totalRevenue
+        - prevMonthRevenue
         - activeCustomers
+        - prevMonthCustomers
         - activeSubscriptions
         - churnRate
         - avgRevenuePerUser
         - totalInvoices
         - overdueInvoices
+        - mrrSparkline
 
     RevenueDataPoint:
       type: object
@@ -415,6 +475,32 @@ components:
             $ref: "#/components/schemas/RevenueDataPoint"
       required: [data]
 
+    PlanRevenue:
+      type: object
+      properties:
+        plan:
+          type: string
+        revenue:
+          type: number
+        percentage:
+          type: number
+        customers:
+          type: integer
+        color:
+          type: string
+      required: [plan, revenue, percentage, customers, color]
+
+    RevenueBreakdownResponse:
+      type: object
+      properties:
+        byPlan:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanRevenue"
+        totalMrr:
+          type: number
+      required: [byPlan, totalMrr]
+
     # ── AI Insights ───────────────────────────────────────────────────────────
     ForecastMonth:
       type: object
@@ -425,6 +511,10 @@ components:
           type: number
         confidence:
           type: string
+          description: "High | Medium | Low"
+        confidenceScore:
+          type: integer
+          description: 0-100 confidence score
       required: [month, projectedRevenue, confidence]
 
     InsightsResponse:
@@ -449,6 +539,8 @@ components:
               type: array
               items:
                 type: string
+            confidenceScore:
+              type: integer
           required: [summary, items]
         opportunities:
           type: object
@@ -459,6 +551,8 @@ components:
               type: array
               items:
                 type: string
+            confidenceScore:
+              type: integer
           required: [summary, items]
         recommendedActions:
           type: object
@@ -480,21 +574,30 @@ components:
         - recommendedActions
         - generatedAt
 
+    WeeklyAction:
+      type: object
+      properties:
+        priority:
+          type: integer
+        action:
+          type: string
+        rationale:
+          type: string
+        impact:
+          type: string
+          description: "High | Medium | Low"
+        outcome:
+          type: string
+          description: Expected outcome if action is completed
+      required: [priority, action, rationale, impact, outcome]
+
     WeeklyActionsResponse:
       type: object
       properties:
         actions:
           type: array
           items:
-            type: object
-            properties:
-              priority:
-                type: integer
-              action:
-                type: string
-              rationale:
-                type: string
-            required: [priority, action, rationale]
+            $ref: "#/components/schemas/WeeklyAction"
         generatedAt:
           type: string
           format: date-time

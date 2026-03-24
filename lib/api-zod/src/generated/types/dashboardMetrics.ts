@@ -9,15 +9,23 @@
 export interface DashboardMetrics {
   /** Monthly Recurring Revenue in dollars */
   mrr: number;
-  /** Month-over-month MRR growth percentage */
+  /** Month-over-month MRR growth as a percentage (e.g. 11.4 means 11.4%) */
   mrrGrowthRate: number;
   /** Total revenue this month in dollars */
   totalRevenue: number;
+  /** Total revenue previous month for comparison */
+  prevMonthRevenue: number;
   activeCustomers: number;
+  /** Active customers last month for comparison */
+  prevMonthCustomers: number;
   activeSubscriptions: number;
-  /** Monthly churn rate percentage */
+  /** Monthly churn rate as a percentage (e.g. 2.4 means 2.4%) */
   churnRate: number;
   avgRevenuePerUser: number;
   totalInvoices: number;
   overdueInvoices: number;
+  /** Last 6 months MRR values for sparkline display */
+  mrrSparkline: number[];
+  /** Demo company archetype */
+  companyType?: string;
 }

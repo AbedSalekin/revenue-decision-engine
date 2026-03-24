@@ -6,8 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface DemoModeStatus {
-  demoMode: boolean;
+export interface SetDemoCompanyBody {
   /** saas | marketplace | subscription */
-  companyType?: string;
+  companyType: string;
 }

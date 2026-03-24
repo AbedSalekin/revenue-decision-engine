@@ -9,5 +9,8 @@
 export interface ForecastMonth {
   month: string;
   projectedRevenue: number;
+  /** High | Medium | Low */
   confidence: string;
+  /** 0-100 confidence score */
+  confidenceScore?: number;
 }

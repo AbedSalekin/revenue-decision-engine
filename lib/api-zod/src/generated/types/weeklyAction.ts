@@ -6,8 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type WeeklyActionsResponseActionsItem = {
+export interface WeeklyAction {
   priority: number;
   action: string;
   rationale: string;
-};
+  /** High | Medium | Low */
+  impact: string;
+  /** Expected outcome if action is completed */
+  outcome: string;
+}

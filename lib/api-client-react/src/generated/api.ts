@@ -26,7 +26,9 @@ import type {
   InsightsResponse,
   LoginBody,
   RegisterBody,
+  RevenueBreakdownResponse,
   RevenueChartResponse,
+  SetDemoCompanyBody,
   SetDemoModeBody,
   StripeStatus,
   SuccessResponse,
@@ -596,6 +598,92 @@ export const useSetDemoMode = <
 };
 
 /**
+ * @summary Switch demo company archetype
+ */
+export const getSetDemoCompanyUrl = () => {
+  return `/api/stripe/demo-company`;
+};
+
+export const setDemoCompany = async (
+  setDemoCompanyBody: SetDemoCompanyBody,
+  options?: RequestInit,
+): Promise<DemoModeStatus> => {
+  return customFetch<DemoModeStatus>(getSetDemoCompanyUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setDemoCompanyBody),
+  });
+};
+
+export const getSetDemoCompanyMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setDemoCompany>>,
+    TError,
+    { data: BodyType<SetDemoCompanyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setDemoCompany>>,
+  TError,
+  { data: BodyType<SetDemoCompanyBody> },
+  TContext
+> => {
+  const mutationKey = ["setDemoCompany"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setDemoCompany>>,
+    { data: BodyType<SetDemoCompanyBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return setDemoCompany(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetDemoCompanyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setDemoCompany>>
+>;
+export type SetDemoCompanyMutationBody = BodyType<SetDemoCompanyBody>;
+export type SetDemoCompanyMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Switch demo company archetype
+ */
+export const useSetDemoCompany = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setDemoCompany>>,
+    TError,
+    { data: BodyType<SetDemoCompanyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setDemoCompany>>,
+  TError,
+  { data: BodyType<SetDemoCompanyBody> },
+  TContext
+> => {
+  return useMutation(getSetDemoCompanyMutationOptions(options));
+};
+
+/**
  * @summary Connect Stripe and store API key
  */
 export const getConnectStripeUrl = () => {
@@ -898,6 +986,81 @@ export function useGetRevenueChart<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetRevenueChartQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Revenue breakdown by plan and segment
+ */
+export const getGetRevenueBreakdownUrl = () => {
+  return `/api/dashboard/revenue-breakdown`;
+};
+
+export const getRevenueBreakdown = async (
+  options?: RequestInit,
+): Promise<RevenueBreakdownResponse> => {
+  return customFetch<RevenueBreakdownResponse>(getGetRevenueBreakdownUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRevenueBreakdownQueryKey = () => {
+  return [`/api/dashboard/revenue-breakdown`] as const;
+};
+
+export const getGetRevenueBreakdownQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRevenueBreakdown>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getRevenueBreakdown>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRevenueBreakdownQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRevenueBreakdown>>
+  > = ({ signal }) => getRevenueBreakdown({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRevenueBreakdown>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRevenueBreakdownQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRevenueBreakdown>>
+>;
+export type GetRevenueBreakdownQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Revenue breakdown by plan and segment
+ */
+
+export function useGetRevenueBreakdown<
+  TData = Awaited<ReturnType<typeof getRevenueBreakdown>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getRevenueBreakdown>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRevenueBreakdownQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -9,4 +9,5 @@
 export type InsightsResponseRisks = {
   summary: string;
   items: string[];
+  confidenceScore?: number;
 };

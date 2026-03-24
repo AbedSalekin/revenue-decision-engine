@@ -9,4 +9,5 @@
 export type InsightsResponseOpportunities = {
   summary: string;
   items: string[];
+  confidenceScore?: number;
 };

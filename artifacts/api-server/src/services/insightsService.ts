@@ -6,7 +6,6 @@
 import OpenAI from "openai";
 import type { FinancialMetrics, RevenueDataPoint } from "./stripeService";
 
-// Initialize the OpenAI client using Replit AI Integrations proxy
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -16,6 +15,7 @@ export interface ForecastMonth {
   month: string;
   projectedRevenue: number;
   confidence: string;
+  confidenceScore?: number;
 }
 
 export interface InsightsData {
@@ -26,10 +26,12 @@ export interface InsightsData {
   risks: {
     summary: string;
     items: string[];
+    confidenceScore?: number;
   };
   opportunities: {
     summary: string;
     items: string[];
+    confidenceScore?: number;
   };
   recommendedActions: {
     summary: string;
@@ -42,41 +44,66 @@ export interface WeeklyAction {
   priority: number;
   action: string;
   rationale: string;
+  impact: string;
+  outcome: string;
 }
 
 /**
- * Build a concise financial summary to send to the AI.
- * Keeps token count reasonable while providing sufficient context.
+ * Build a structured financial context object to send to the AI.
+ * Rich, structured JSON gives the model more to work with.
  */
-function buildMetricsSummary(
+function buildFinancialContext(
   metrics: FinancialMetrics,
   chartData: RevenueDataPoint[],
-): string {
-  const mrrGrowth =
+): object {
+  const mrrGrowthRate =
     metrics.prevMonthMrr > 0
       ? (((metrics.mrr - metrics.prevMonthMrr) / metrics.prevMonthMrr) * 100).toFixed(1)
       : "N/A";
 
-  const last3Months = chartData.slice(-3);
-  const recentTrend = last3Months
-    .map((d) => `${d.month}: $${d.mrr.toLocaleString()} MRR`)
-    .join(", ");
+  const revenueGrowthRate =
+    metrics.prevMonthRevenue > 0
+      ? (((metrics.totalRevenue - metrics.prevMonthRevenue) / metrics.prevMonthRevenue) * 100).toFixed(1)
+      : "N/A";
 
-  return `
-CURRENT METRICS (as of ${new Date().toLocaleDateString()}):
-- MRR: $${metrics.mrr.toLocaleString()}
-- MoM MRR Growth: ${mrrGrowth}%
-- Total Revenue This Month: $${metrics.totalRevenue.toLocaleString()}
-- Active Customers: ${metrics.activeCustomers}
-- Active Subscriptions: ${metrics.activeSubscriptions}
-- Monthly Churn Rate: ${metrics.churnRate.toFixed(1)}%
-- ARPU: $${metrics.avgRevenuePerUser.toFixed(2)}
-- Total Invoices (this month): ${metrics.totalInvoices}
-- Overdue Invoices: ${metrics.overdueInvoices}
+  const customerGrowthRate =
+    metrics.prevMonthCustomers > 0
+      ? (((metrics.activeCustomers - metrics.prevMonthCustomers) / metrics.prevMonthCustomers) * 100).toFixed(1)
+      : "N/A";
 
-RECENT MRR TREND:
-${recentTrend}
-  `.trim();
+  const last6Months = chartData.slice(-6).map((d) => ({
+    month: d.month,
+    mrr: d.mrr,
+    revenue: d.revenue,
+    customers: d.customers,
+  }));
+
+  const mrrTrend = chartData.slice(-3);
+  const avgGrowth = mrrTrend.length >= 2
+    ? (((mrrTrend[mrrTrend.length - 1].mrr - mrrTrend[0].mrr) / mrrTrend[0].mrr) * 100).toFixed(1)
+    : "N/A";
+
+  return {
+    asOf: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+    companyType: metrics.companyType || "saas",
+    currentMetrics: {
+      mrr: metrics.mrr,
+      mrrGrowthMoM: `${mrrGrowthRate}%`,
+      totalRevenueMTD: metrics.totalRevenue,
+      revenueGrowthMoM: `${revenueGrowthRate}%`,
+      activeCustomers: metrics.activeCustomers,
+      customerGrowthMoM: `${customerGrowthRate}%`,
+      activeSubscriptions: metrics.activeSubscriptions,
+      churnRate: `${metrics.churnRate.toFixed(1)}%`,
+      arpu: metrics.avgRevenuePerUser,
+      overdueInvoices: metrics.overdueInvoices,
+      totalInvoices: metrics.totalInvoices,
+    },
+    recentTrend: {
+      last6Months,
+      avgMoMGrowthLast3Months: `${avgGrowth}%`,
+    },
+  };
 }
 
 /**
@@ -87,52 +114,58 @@ export async function generateAIInsights(
   metrics: FinancialMetrics,
   chartData: RevenueDataPoint[],
 ): Promise<InsightsData> {
-  const metricsSummary = buildMetricsSummary(metrics, chartData);
+  const financialContext = buildFinancialContext(metrics, chartData);
 
-  const systemPrompt = `You are an expert CFO advisor for early-stage SaaS startups. 
-Analyze the provided financial metrics and generate a structured, actionable report.
-Be specific, data-driven, and practical. Use exact dollar amounts and percentages where possible.
-Format all monetary values as numbers (no $ symbols in values).`;
+  const systemPrompt = `You are an elite CFO advisor for early-stage startups with deep expertise in SaaS unit economics, marketplace dynamics, and subscription businesses. You analyze financial data and generate precise, actionable intelligence.
 
-  const userPrompt = `${metricsSummary}
+Rules:
+- Be extremely specific — reference exact numbers from the data
+- Provide investor-grade analysis
+- Focus on the 3-6 month horizon
+- Every risk and opportunity must be tied to a specific metric
+- Return ONLY valid JSON, no markdown or prose outside the JSON`;
 
-Generate a comprehensive financial analysis with the following structure as valid JSON:
+  const userPrompt = `Analyze this financial data and return a JSON insights report:
+
+${JSON.stringify(financialContext, null, 2)}
+
+Return ONLY this JSON structure:
 {
   "forecast": {
-    "summary": "2-3 sentence revenue forecast narrative",
+    "summary": "2-3 sentence forecast narrative citing exact MRR figures and growth trajectory",
     "months": [
-      { "month": "Apr 2025", "projectedRevenue": 28500, "confidence": "High" },
-      { "month": "May 2025", "projectedRevenue": 31000, "confidence": "Medium" },
-      { "month": "Jun 2025", "projectedRevenue": 34500, "confidence": "Low" }
+      { "month": "Apr 2026", "projectedRevenue": 28500, "confidence": "High", "confidenceScore": 85 },
+      { "month": "May 2026", "projectedRevenue": 31000, "confidence": "Medium", "confidenceScore": 70 },
+      { "month": "Jun 2026", "projectedRevenue": 34500, "confidence": "Low", "confidenceScore": 55 }
     ]
   },
   "risks": {
-    "summary": "Overall risk assessment in 1-2 sentences",
+    "summary": "Overall risk posture in 1-2 sentences",
+    "confidenceScore": 78,
     "items": [
-      "Specific risk 1 with data-backed reasoning",
-      "Specific risk 2",
-      "Specific risk 3"
+      "Risk 1: specific, data-backed (e.g. 'Churn rate of X% implies losing $Y MRR per month')",
+      "Risk 2",
+      "Risk 3"
     ]
   },
   "opportunities": {
-    "summary": "Growth opportunity overview in 1-2 sentences",
+    "summary": "1-2 sentence growth opportunity overview",
+    "confidenceScore": 82,
     "items": [
-      "Specific opportunity 1 with potential impact",
-      "Specific opportunity 2",
-      "Specific opportunity 3"
+      "Opportunity 1 with projected revenue impact (e.g. 'Reducing churn by 1% adds $X MRR')",
+      "Opportunity 2",
+      "Opportunity 3"
     ]
   },
   "recommendedActions": {
-    "summary": "Action plan overview in 1-2 sentences",
+    "summary": "1-2 sentence action plan overview",
     "items": [
-      "Action 1: specific, measurable action",
-      "Action 2: specific, measurable action",
-      "Action 3: specific, measurable action"
+      "Action 1: specific, measurable (e.g. 'Launch win-back campaign targeting 23 churned accounts from Q1')",
+      "Action 2",
+      "Action 3"
     ]
   }
-}
-
-Return ONLY the JSON object, no markdown or other text.`;
+}`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-5.2",
@@ -147,7 +180,6 @@ Return ONLY the JSON object, no markdown or other text.`;
 
   let parsed: Omit<InsightsData, "generatedAt">;
   try {
-    // Strip any accidental markdown code fences
     const clean = content.replace(/```(?:json)?/g, "").trim();
     parsed = JSON.parse(clean);
   } catch {
@@ -161,25 +193,42 @@ Return ONLY the JSON object, no markdown or other text.`;
 }
 
 /**
- * Generate 3 prioritized weekly actions based on current metrics.
+ * Generate 3 prioritized weekly actions with impact level and expected outcome.
  */
 export async function generateWeeklyActions(
   metrics: FinancialMetrics,
   chartData: RevenueDataPoint[],
 ): Promise<{ actions: WeeklyAction[]; generatedAt: string }> {
-  const metricsSummary = buildMetricsSummary(metrics, chartData);
+  const financialContext = buildFinancialContext(metrics, chartData);
 
-  const prompt = `${metricsSummary}
+  const prompt = `Based on this financial data, return the 3 highest-impact actions for this week:
 
-Based on these metrics, what are the 3 most impactful actions the founder should take THIS WEEK?
-Be very specific and actionable. Each action should be completable in 1 week.
+${JSON.stringify(financialContext, null, 2)}
 
-Return ONLY a JSON object in this exact format:
+Each action must be completable in 5 business days. Return ONLY this JSON:
 {
   "actions": [
-    { "priority": 1, "action": "Specific action to take", "rationale": "Why this will help (with data)" },
-    { "priority": 2, "action": "Specific action to take", "rationale": "Why this will help (with data)" },
-    { "priority": 3, "action": "Specific action to take", "rationale": "Why this will help (with data)" }
+    {
+      "priority": 1,
+      "action": "Specific, concrete action (e.g. 'Call the 7 accounts that haven't paid in 30+ days')",
+      "rationale": "Why now, backed by the data (e.g. 'You have $X overdue — collecting 50% adds $Y this month')",
+      "impact": "High",
+      "outcome": "Expected result if completed (e.g. 'Recover $2,400 in overdue revenue and reduce churn risk')"
+    },
+    {
+      "priority": 2,
+      "action": "...",
+      "rationale": "...",
+      "impact": "Medium",
+      "outcome": "..."
+    },
+    {
+      "priority": 3,
+      "action": "...",
+      "rationale": "...",
+      "impact": "Medium",
+      "outcome": "..."
+    }
   ]
 }`;
 
@@ -190,7 +239,7 @@ Return ONLY a JSON object in this exact format:
       {
         role: "system",
         content:
-          "You are a pragmatic startup CFO. Give founders specific, high-impact weekly actions. Be direct and data-driven.",
+          "You are a pragmatic startup CFO. Give founders specific, high-impact weekly actions with clear outcomes. Reference exact numbers. Return only valid JSON.",
       },
       { role: "user", content: prompt },
     ],

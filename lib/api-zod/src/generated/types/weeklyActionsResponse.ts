@@ -5,9 +5,9 @@
  * AI CFO API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { WeeklyActionsResponseActionsItem } from "./weeklyActionsResponseActionsItem";
+import type { WeeklyAction } from "./weeklyAction";
 
 export interface WeeklyActionsResponse {
-  actions: WeeklyActionsResponseActionsItem[];
+  actions: WeeklyAction[];
   generatedAt: Date;
 }

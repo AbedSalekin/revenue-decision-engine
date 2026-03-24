@@ -44,10 +44,17 @@ export interface AuthResponse {
 
 export interface DemoModeStatus {
   demoMode: boolean;
+  /** saas | marketplace | subscription */
+  companyType?: string;
 }
 
 export interface SetDemoModeBody {
   demoMode: boolean;
+}
+
+export interface SetDemoCompanyBody {
+  /** saas | marketplace | subscription */
+  companyType: string;
 }
 
 export interface ConnectStripeBody {
@@ -62,17 +69,25 @@ export interface StripeStatus {
 export interface DashboardMetrics {
   /** Monthly Recurring Revenue in dollars */
   mrr: number;
-  /** Month-over-month MRR growth percentage */
+  /** Month-over-month MRR growth as a percentage (e.g. 11.4 means 11.4%) */
   mrrGrowthRate: number;
   /** Total revenue this month in dollars */
   totalRevenue: number;
+  /** Total revenue previous month for comparison */
+  prevMonthRevenue: number;
   activeCustomers: number;
+  /** Active customers last month for comparison */
+  prevMonthCustomers: number;
   activeSubscriptions: number;
-  /** Monthly churn rate percentage */
+  /** Monthly churn rate as a percentage (e.g. 2.4 means 2.4%) */
   churnRate: number;
   avgRevenuePerUser: number;
   totalInvoices: number;
   overdueInvoices: number;
+  /** Last 6 months MRR values for sparkline display */
+  mrrSparkline: number[];
+  /** Demo company archetype */
+  companyType?: string;
 }
 
 export interface RevenueDataPoint {
@@ -87,10 +102,26 @@ export interface RevenueChartResponse {
   data: RevenueDataPoint[];
 }
 
+export interface PlanRevenue {
+  plan: string;
+  revenue: number;
+  percentage: number;
+  customers: number;
+  color: string;
+}
+
+export interface RevenueBreakdownResponse {
+  byPlan: PlanRevenue[];
+  totalMrr: number;
+}
+
 export interface ForecastMonth {
   month: string;
   projectedRevenue: number;
+  /** High | Medium | Low */
   confidence: string;
+  /** 0-100 confidence score */
+  confidenceScore?: number;
 }
 
 export type InsightsResponseForecast = {
@@ -101,11 +132,13 @@ export type InsightsResponseForecast = {
 export type InsightsResponseRisks = {
   summary: string;
   items: string[];
+  confidenceScore?: number;
 };
 
 export type InsightsResponseOpportunities = {
   summary: string;
   items: string[];
+  confidenceScore?: number;
 };
 
 export type InsightsResponseRecommendedActions = {
@@ -121,13 +154,17 @@ export interface InsightsResponse {
   generatedAt: string;
 }
 
-export type WeeklyActionsResponseActionsItem = {
+export interface WeeklyAction {
   priority: number;
   action: string;
   rationale: string;
-};
+  /** High | Medium | Low */
+  impact: string;
+  /** Expected outcome if action is completed */
+  outcome: string;
+}
 
 export interface WeeklyActionsResponse {
-  actions: WeeklyActionsResponseActionsItem[];
+  actions: WeeklyAction[];
   generatedAt: string;
 }

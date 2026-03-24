@@ -17,6 +17,8 @@ export const usersTable = pgTable("users", {
   stripeAccountName: text("stripe_account_name"),
   // Whether the user is in demo mode (shows simulated SaaS data)
   demoMode: boolean("demo_mode").notNull().default(true),
+  // Demo company archetype: saas | marketplace | subscription
+  demoCompanyType: text("demo_company_type").notNull().default("saas"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

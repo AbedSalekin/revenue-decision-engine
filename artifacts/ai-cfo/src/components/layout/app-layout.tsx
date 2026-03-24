@@ -4,6 +4,7 @@ import { Topbar } from "./topbar";
 import { useAuth } from "@/hooks/use-auth";
 import { Redirect } from "wouter";
 import { Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -11,7 +12,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <Loader2 className="w-6 h-6 text-primary animate-spin" />
       </div>
     );
   }
@@ -23,10 +24,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
-      <main className="pl-72 flex flex-col min-h-screen">
+      <main className="pl-[220px] flex flex-col min-h-screen">
         <Topbar />
-        <div className="flex-1 p-8">
-          {children}
+        <div className="flex-1 p-6 md:p-8">
+          <AnimatePresence mode="wait">
+            {children}
+          </AnimatePresence>
         </div>
       </main>
     </div>

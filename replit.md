@@ -1,8 +1,8 @@
-# Workspace
+# AI CFO — Workspace
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+Full-stack SaaS financial intelligence dashboard for startups. Connects to Stripe, analyzes revenue data, and uses OpenAI to generate actionable insights.
 
 ## Stack
 
@@ -10,87 +10,92 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Node.js version**: 24
 - **Package manager**: pnpm
 - **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
+- **Frontend**: React + Vite (artifacts/ai-cfo)
+- **Backend**: Express 5 (artifacts/api-server)
+- **Database**: PostgreSQL + Drizzle ORM (lib/db)
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+- **Auth**: JWT (jsonwebtoken) + bcrypt password hashing
+- **AI**: OpenAI gpt-5.2 via Replit AI Integrations proxy
+- **Stripe**: stripe npm package (test mode)
+- **Build**: esbuild (backend), Vite (frontend)
 
 ## Structure
 
 ```text
 artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
-├── lib/                    # Shared libraries
+├── artifacts/
+│   ├── api-server/         # Express API server (port from $PORT)
+│   └── ai-cfo/             # React + Vite frontend (port 22558)
+├── lib/
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
 │   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
+├── tsconfig.json
+└── package.json
 ```
 
-## TypeScript & Composite Projects
+## Database Schema
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
+- **users** — accounts with email/password, optional Stripe key, demo mode flag
+- **insights** — stored AI insight reports (jsonb) per user
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+## API Routes
 
-## Root Scripts
+All routes are prefixed with `/api`.
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
+### Auth (`/api/auth`)
+- `POST /register` — create account
+- `POST /login` — authenticate, get JWT
+- `POST /logout` — stateless ack
+- `GET /me` — current user (requires Bearer token)
 
-## Packages
+### Stripe (`/api/stripe`)
+- `GET /status` — is Stripe connected?
+- `GET /demo-mode` — get demo mode state
+- `POST /demo-mode` — toggle demo mode `{ demoMode: boolean }`
+- `POST /connect` — validate and save Stripe key `{ apiKey: string }`
 
-### `artifacts/api-server` (`@workspace/api-server`)
+### Dashboard (`/api/dashboard`)
+- `GET /metrics` — MRR, growth, customers, churn, ARPU, invoices
+- `GET /revenue-chart` — 12-month revenue/MRR/customers array
 
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
+### Insights (`/api/insights`)
+- `GET /latest` — most recent stored insights
+- `POST /generate` — generate new AI insights (OpenAI call)
+- `POST /weekly-actions` — get 3 prioritized weekly actions
 
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+## Services
 
-### `lib/db` (`@workspace/db`)
+- `artifacts/api-server/src/services/stripeService.ts` — Stripe data fetching + demo data generation
+- `artifacts/api-server/src/services/insightsService.ts` — OpenAI insight/action generation
+- `artifacts/api-server/src/lib/auth.ts` — JWT signing, bcrypt, Express middleware
 
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
+## Environment Variables
 
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
+- `DATABASE_URL` — PostgreSQL connection string (auto-provisioned by Replit)
+- `AI_INTEGRATIONS_OPENAI_BASE_URL` — Replit AI proxy URL (auto-set)
+- `AI_INTEGRATIONS_OPENAI_API_KEY` — Replit AI proxy key (auto-set)
+- `JWT_SECRET` — JWT signing secret (defaults to dev value; set in production)
+- `PORT` — assigned by Replit per artifact
 
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
+## Key Features
 
-### `lib/api-spec` (`@workspace/api-spec`)
+- Email/password authentication with JWT tokens
+- Demo mode with realistic simulated SaaS metrics (on by default)
+- Stripe connection (test mode) — pulls real revenue, subscriptions, invoices
+- Financial dashboard: MRR, MRR growth %, total revenue, active customers, churn rate, ARPU
+- 12-month revenue/MRR line chart (Recharts)
+- AI Insights: revenue forecast (3 months), churn risks, opportunities, recommended actions
+- "What should I do this week?" — 3 prioritized weekly actions
 
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
+## Codegen
 
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
+Run `pnpm --filter @workspace/api-spec run codegen` after changing `lib/api-spec/openapi.yaml`.
 
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
+## Database Migrations
 
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+Run `pnpm --filter @workspace/db run push` after changing `lib/db/src/schema/`.

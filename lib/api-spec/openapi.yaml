@@ -1,22 +1,29 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AI CFO API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: stripe
+    description: Stripe financial data
+  - name: insights
+    description: AI financial insights
+  - name: dashboard
+    description: Dashboard metrics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +31,227 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Authentication ──────────────────────────────────────────────────────────
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "409":
+          description: Email already in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Demo Mode ────────────────────────────────────────────────────────────────
+  /stripe/demo-mode:
+    get:
+      operationId: getDemoMode
+      tags: [stripe]
+      summary: Get demo mode status
+      responses:
+        "200":
+          description: Demo mode status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoModeStatus"
+    post:
+      operationId: setDemoMode
+      tags: [stripe]
+      summary: Toggle demo mode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetDemoModeBody"
+      responses:
+        "200":
+          description: Demo mode updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoModeStatus"
+
+  # ── Stripe Connection ─────────────────────────────────────────────────────
+  /stripe/connect:
+    post:
+      operationId: connectStripe
+      tags: [stripe]
+      summary: Connect Stripe and store API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectStripeBody"
+      responses:
+        "200":
+          description: Connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          description: Invalid key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /stripe/status:
+    get:
+      operationId: getStripeStatus
+      tags: [stripe]
+      summary: Check if Stripe is connected for current user
+      responses:
+        "200":
+          description: Connection status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StripeStatus"
+
+  # ── Dashboard Metrics ──────────────────────────────────────────────────────
+  /dashboard/metrics:
+    get:
+      operationId: getDashboardMetrics
+      tags: [dashboard]
+      summary: Get core financial metrics
+      responses:
+        "200":
+          description: Metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardMetrics"
+
+  /dashboard/revenue-chart:
+    get:
+      operationId: getRevenueChart
+      tags: [dashboard]
+      summary: Monthly revenue chart data (last 12 months)
+      responses:
+        "200":
+          description: Revenue chart data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevenueChartResponse"
+
+  # ── AI Insights ────────────────────────────────────────────────────────────
+  /insights/generate:
+    post:
+      operationId: generateInsights
+      tags: [insights]
+      summary: Generate AI financial insights
+      responses:
+        "200":
+          description: AI insights
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsightsResponse"
+
+  /insights/weekly-actions:
+    post:
+      operationId: generateWeeklyActions
+      tags: [insights]
+      summary: Get 3 prioritized actions for this week
+      responses:
+        "200":
+          description: Weekly actions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyActionsResponse"
+
+  /insights/latest:
+    get:
+      operationId: getLatestInsights
+      tags: [insights]
+      summary: Get the most recently generated insights
+      responses:
+        "200":
+          description: Latest insights or null
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsightsResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +259,243 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required: [success]
+
+    # ── Auth ──────────────────────────────────────────────────────────────────
+    RegisterBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        name:
+          type: string
+      required: [email, password, name]
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, email, name, createdAt]
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+      required: [user, token]
+
+    # ── Demo & Stripe ─────────────────────────────────────────────────────────
+    DemoModeStatus:
+      type: object
+      properties:
+        demoMode:
+          type: boolean
+      required: [demoMode]
+
+    SetDemoModeBody:
+      type: object
+      properties:
+        demoMode:
+          type: boolean
+      required: [demoMode]
+
+    ConnectStripeBody:
+      type: object
+      properties:
+        apiKey:
+          type: string
+      required: [apiKey]
+
+    StripeStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        accountName:
+          type: string
+      required: [connected]
+
+    # ── Dashboard ─────────────────────────────────────────────────────────────
+    DashboardMetrics:
+      type: object
+      properties:
+        mrr:
+          type: number
+          description: Monthly Recurring Revenue in dollars
+        mrrGrowthRate:
+          type: number
+          description: Month-over-month MRR growth percentage
+        totalRevenue:
+          type: number
+          description: Total revenue this month in dollars
+        activeCustomers:
+          type: integer
+        activeSubscriptions:
+          type: integer
+        churnRate:
+          type: number
+          description: Monthly churn rate percentage
+        avgRevenuePerUser:
+          type: number
+        totalInvoices:
+          type: integer
+        overdueInvoices:
+          type: integer
+      required:
+        - mrr
+        - mrrGrowthRate
+        - totalRevenue
+        - activeCustomers
+        - activeSubscriptions
+        - churnRate
+        - avgRevenuePerUser
+        - totalInvoices
+        - overdueInvoices
+
+    RevenueDataPoint:
+      type: object
+      properties:
+        month:
+          type: string
+          description: e.g. "Jan 2025"
+        revenue:
+          type: number
+        mrr:
+          type: number
+        customers:
+          type: integer
+      required: [month, revenue, mrr, customers]
+
+    RevenueChartResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RevenueDataPoint"
+      required: [data]
+
+    # ── AI Insights ───────────────────────────────────────────────────────────
+    ForecastMonth:
+      type: object
+      properties:
+        month:
+          type: string
+        projectedRevenue:
+          type: number
+        confidence:
+          type: string
+      required: [month, projectedRevenue, confidence]
+
+    InsightsResponse:
+      type: object
+      properties:
+        forecast:
+          type: object
+          properties:
+            summary:
+              type: string
+            months:
+              type: array
+              items:
+                $ref: "#/components/schemas/ForecastMonth"
+          required: [summary, months]
+        risks:
+          type: object
+          properties:
+            summary:
+              type: string
+            items:
+              type: array
+              items:
+                type: string
+          required: [summary, items]
+        opportunities:
+          type: object
+          properties:
+            summary:
+              type: string
+            items:
+              type: array
+              items:
+                type: string
+          required: [summary, items]
+        recommendedActions:
+          type: object
+          properties:
+            summary:
+              type: string
+            items:
+              type: array
+              items:
+                type: string
+          required: [summary, items]
+        generatedAt:
+          type: string
+          format: date-time
+      required:
+        - forecast
+        - risks
+        - opportunities
+        - recommendedActions
+        - generatedAt
+
+    WeeklyActionsResponse:
+      type: object
+      properties:
+        actions:
+          type: array
+          items:
+            type: object
+            properties:
+              priority:
+                type: integer
+              action:
+                type: string
+              rationale:
+                type: string
+            required: [priority, action, rationale]
+        generatedAt:
+          type: string
+          format: date-time
+      required: [actions, generatedAt]

@@ -18,18 +18,26 @@ const router: IRouter = Router();
 
 router.use(requireAuth);
 
+/** Returns true when the user should use live Stripe data */
+function isLiveMode(user: Express.Request["user"]): boolean {
+  return !user.demoMode && !!user.stripeConnected && !!user.stripeApiKey;
+}
+
+/** Resolve the active company type for demo mode */
+function resolveCompanyType(user: Express.Request["user"]): CompanyType {
+  return (user.demoCompanyType as CompanyType) || "saas";
+}
+
 /** GET /api/dashboard/metrics — core financial KPIs */
 router.get("/metrics", async (req, res) => {
-  const user = (req as any).user;
-  const companyType: CompanyType = (user.demoCompanyType as CompanyType) || "saas";
+  const { user } = req;
+  const companyType = resolveCompanyType(user);
 
-  let metrics;
-  if (!user.demoMode && user.stripeConnected && user.stripeApiKey) {
-    metrics = await fetchStripeMetrics(user.stripeApiKey);
-  } else {
-    metrics = generateDemoMetrics(companyType);
-  }
+  const metrics = isLiveMode(user)
+    ? await fetchStripeMetrics(user.stripeApiKey!)
+    : generateDemoMetrics(companyType);
 
+  // Compute MRR growth rate here so the route owns the derived stat
   const mrrGrowthRate =
     metrics.prevMonthMrr > 0
       ? ((metrics.mrr - metrics.prevMonthMrr) / metrics.prevMonthMrr) * 100
@@ -54,25 +62,22 @@ router.get("/metrics", async (req, res) => {
 
 /** GET /api/dashboard/revenue-chart — 12 months of MRR/revenue data */
 router.get("/revenue-chart", async (req, res) => {
-  const user = (req as any).user;
-  const companyType: CompanyType = (user.demoCompanyType as CompanyType) || "saas";
+  const { user } = req;
+  const companyType = resolveCompanyType(user);
 
-  let data;
-  if (!user.demoMode && user.stripeConnected && user.stripeApiKey) {
-    data = await fetchStripeRevenueChart(user.stripeApiKey);
-  } else {
-    data = generateDemoRevenueChart(companyType);
-  }
+  const data = isLiveMode(user)
+    ? await fetchStripeRevenueChart(user.stripeApiKey!)
+    : generateDemoRevenueChart(companyType);
 
   res.json({ data });
 });
 
-/** GET /api/dashboard/revenue-breakdown — revenue breakdown by plan */
-router.get("/revenue-breakdown", async (req, res) => {
-  const user = (req as any).user;
-  const companyType: CompanyType = (user.demoCompanyType as CompanyType) || "saas";
+/** GET /api/dashboard/revenue-breakdown — revenue by plan */
+router.get("/revenue-breakdown", (req, res) => {
+  const { user } = req;
+  const companyType = resolveCompanyType(user);
 
-  // For now, always use demo breakdown — Stripe breakdown requires product metadata
+  // Breakdown requires Stripe product metadata; always use demo data for now
   const breakdown = generateDemoRevenueBreakdown(companyType);
   res.json(breakdown);
 });

@@ -18,7 +18,7 @@ const VALID_COMPANY_TYPES = ["saas", "marketplace", "subscription"] as const;
 type CompanyType = (typeof VALID_COMPANY_TYPES)[number];
 
 /** GET /api/stripe/status — check if Stripe is connected */
-router.get("/status", async (req, res) => {
+router.get("/status", (req, res) => {
   const { user } = req;
   res.json({
     connected: user.stripeConnected,
@@ -27,8 +27,8 @@ router.get("/status", async (req, res) => {
 });
 
 /** GET /api/stripe/demo-mode — get current demo mode state */
-router.get("/demo-mode", async (req, res) => {
-  const user = (req as any).user;
+router.get("/demo-mode", (req, res) => {
+  const { user } = req;
   res.json({
     demoMode: user.demoMode,
     companyType: user.demoCompanyType || "saas",
@@ -43,7 +43,7 @@ router.post("/demo-mode", async (req, res) => {
     return;
   }
 
-  const user = (req as any).user;
+  const { user } = req;
   const [updated] = await db
     .update(usersTable)
     .set({ demoMode: parsed.data.demoMode, updatedAt: new Date() })
@@ -58,13 +58,14 @@ router.post("/demo-mode", async (req, res) => {
 
 /** POST /api/stripe/demo-company — switch demo company archetype */
 router.post("/demo-company", async (req, res) => {
-  const { companyType } = req.body;
+  const { companyType } = req.body as { companyType: string };
+
   if (!VALID_COMPANY_TYPES.includes(companyType as CompanyType)) {
     res.status(400).json({ error: "companyType must be: saas | marketplace | subscription" });
     return;
   }
 
-  const user = (req as any).user;
+  const { user } = req;
   const [updated] = await db
     .update(usersTable)
     .set({ demoCompanyType: companyType, updatedAt: new Date() })
@@ -90,14 +91,15 @@ router.post("/connect", async (req, res) => {
   try {
     const stripe = new Stripe(apiKey, { apiVersion: "2025-03-31.basil" });
     const account = await stripe.accounts.retrieve();
+    const accountName = account.business_profile?.name || account.id;
 
-    const user = (req as any).user;
+    const { user } = req;
     await db
       .update(usersTable)
       .set({
         stripeApiKey: apiKey,
         stripeConnected: true,
-        stripeAccountName: account.business_profile?.name || account.id,
+        stripeAccountName: accountName,
         demoMode: false,
         updatedAt: new Date(),
       })
@@ -105,9 +107,9 @@ router.post("/connect", async (req, res) => {
 
     res.json({
       success: true,
-      message: `Connected to Stripe account: ${account.business_profile?.name || account.id}`,
+      message: `Connected to Stripe account: ${accountName}`,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     req.log.warn({ err }, "Stripe key validation failed");
     res.status(400).json({
       error: "Invalid Stripe API key. Please check your key and try again.",

@@ -55,13 +55,15 @@ All routes are prefixed with `/api`.
 
 ### Stripe (`/api/stripe`)
 - `GET /status` — is Stripe connected?
-- `GET /demo-mode` — get demo mode state
+- `GET /demo-mode` — get demo mode state + active company type
 - `POST /demo-mode` — toggle demo mode `{ demoMode: boolean }`
+- `POST /demo-company` — switch demo archetype `{ companyType: "saas" | "marketplace" | "subscription" }`
 - `POST /connect` — validate and save Stripe key `{ apiKey: string }`
 
 ### Dashboard (`/api/dashboard`)
-- `GET /metrics` — MRR, growth, customers, churn, ARPU, invoices
+- `GET /metrics` — MRR, growth, customers, churn, ARPU, invoices + sparkline
 - `GET /revenue-chart` — 12-month revenue/MRR/customers array
+- `GET /revenue-breakdown` — revenue by plan (byPlan[] + totalMrr)
 
 ### Insights (`/api/insights`)
 - `GET /latest` — most recent stored insights
@@ -84,13 +86,21 @@ All routes are prefixed with `/api`.
 
 ## Key Features
 
-- Email/password authentication with JWT tokens
-- Demo mode with realistic simulated SaaS metrics (on by default)
+- Email/password authentication with JWT tokens stored in `localStorage` (`ai_cfo_token`)
+- Demo mode with 3 realistic company archetypes: B2B SaaS / Marketplace / Consumer Subscription
 - Stripe connection (test mode) — pulls real revenue, subscriptions, invoices
-- Financial dashboard: MRR, MRR growth %, total revenue, active customers, churn rate, ARPU
-- 12-month revenue/MRR line chart (Recharts)
-- AI Insights: revenue forecast (3 months), churn risks, opportunities, recommended actions
-- "What should I do this week?" — 3 prioritized weekly actions
+- Financial dashboard: 8 KPI cards with sparklines + MoM badges, 3-metric chart toggle, revenue breakdown by plan
+- AI Insights: 3-month forecast with confidence scores, churn risks, growth opportunities
+- "What should I do this week?" — 3 prioritized weekly actions with Impact level + Expected Outcome
+- Collapsible sidebar (icon-only at 60px), company type switcher pills in topbar (demo mode only)
+- Premium landing page with mini dashboard chart preview on the login screen
+
+## TypeScript Conventions
+
+- `req.user` is typed via `artifacts/api-server/src/types/express.d.ts` — never use `(req as any).user`
+- All routes use `const { user } = req` after the `requireAuth` middleware
+- `isLiveMode(user)` helper centralises the "use real Stripe vs demo" check in each route file
+- Insight pruning uses a single `inArray` batch delete — never loop-delete
 
 ## Codegen
 

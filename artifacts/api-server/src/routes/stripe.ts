@@ -9,15 +9,13 @@ import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { ConnectStripeBody, SetDemoModeBody } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
-import { z } from "zod";
 
 const router: IRouter = Router();
 
 router.use(requireAuth);
 
-const SetDemoCompanyBody = z.object({
-  companyType: z.enum(["saas", "marketplace", "subscription"]),
-});
+const VALID_COMPANY_TYPES = ["saas", "marketplace", "subscription"] as const;
+type CompanyType = (typeof VALID_COMPANY_TYPES)[number];
 
 /** GET /api/stripe/status — check if Stripe is connected */
 router.get("/status", async (req, res) => {
@@ -60,16 +58,16 @@ router.post("/demo-mode", async (req, res) => {
 
 /** POST /api/stripe/demo-company — switch demo company archetype */
 router.post("/demo-company", async (req, res) => {
-  const parsed = SetDemoCompanyBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Invalid request body. companyType must be saas | marketplace | subscription" });
+  const { companyType } = req.body;
+  if (!VALID_COMPANY_TYPES.includes(companyType as CompanyType)) {
+    res.status(400).json({ error: "companyType must be: saas | marketplace | subscription" });
     return;
   }
 
   const user = (req as any).user;
   const [updated] = await db
     .update(usersTable)
-    .set({ demoCompanyType: parsed.data.companyType, updatedAt: new Date() })
+    .set({ demoCompanyType: companyType, updatedAt: new Date() })
     .where(eq(usersTable.id, user.id))
     .returning();
 

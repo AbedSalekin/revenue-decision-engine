@@ -2,12 +2,14 @@ import { ReactNode } from "react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { useAuth } from "@/hooks/use-auth";
+import { useSidebar, SidebarProvider } from "@/hooks/use-sidebar";
 import { Redirect } from "wouter";
 import { Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-export function AppLayout({ children }: { children: ReactNode }) {
+function AppLayoutInner({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
+  const { collapsed } = useSidebar();
 
   if (isLoading) {
     return (
@@ -24,7 +26,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
-      <main className="pl-[220px] flex flex-col min-h-screen">
+      <main
+        className="flex flex-col min-h-screen transition-all duration-200"
+        style={{ paddingLeft: collapsed ? 60 : 220 }}
+      >
         <Topbar />
         <div className="flex-1 p-6 md:p-8">
           <AnimatePresence mode="wait">
@@ -33,5 +38,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </main>
     </div>
+  );
+}
+
+export function AppLayout({ children }: { children: ReactNode }) {
+  return (
+    <SidebarProvider>
+      <AppLayoutInner>{children}</AppLayoutInner>
+    </SidebarProvider>
   );
 }

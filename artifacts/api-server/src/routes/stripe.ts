@@ -19,7 +19,7 @@ type CompanyType = (typeof VALID_COMPANY_TYPES)[number];
 
 /** GET /api/stripe/status — check if Stripe is connected */
 router.get("/status", async (req, res) => {
-  const user = (req as any).user;
+  const { user } = req;
   res.json({
     connected: user.stripeConnected,
     accountName: user.stripeAccountName || null,

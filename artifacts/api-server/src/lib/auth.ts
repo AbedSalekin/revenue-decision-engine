@@ -9,7 +9,13 @@ import type { Request, Response, NextFunction } from "express";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
-const JWT_SECRET = process.env.JWT_SECRET || "ai-cfo-dev-secret-change-in-prod";
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET && process.env.NODE_ENV === "production") {
+  throw new Error("JWT_SECRET environment variable is required in production");
+}
+
+const _JWT_SECRET = JWT_SECRET || "ai-cfo-dev-secret-do-not-use-in-prod";
 const SALT_ROUNDS = 10;
 
 export interface AuthPayload {
@@ -32,12 +38,12 @@ export async function comparePassword(
 
 /** Sign a JWT for the given user */
 export function signToken(payload: AuthPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign(payload, _JWT_SECRET, { expiresIn: "7d" });
 }
 
 /** Verify and decode a JWT — throws if invalid */
 export function verifyToken(token: string): AuthPayload {
-  return jwt.verify(token, JWT_SECRET) as AuthPayload;
+  return jwt.verify(token, _JWT_SECRET) as AuthPayload;
 }
 
 /** Express middleware — attach req.user if a valid Bearer token is present */
@@ -68,7 +74,7 @@ export async function requireAuth(
       return;
     }
 
-    (req as any).user = users[0];
+    req.user = users[0];
     next();
   } catch {
     res.status(401).json({ error: "Invalid or expired token" });

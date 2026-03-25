@@ -114,7 +114,7 @@ router.post("/logout", (_req, res) => {
 
 /** GET /api/auth/me — return current authenticated user */
 router.get("/me", requireAuth, (req, res) => {
-  const user = (req as any).user;
+  const { user } = req;
   res.json({
     id: user.id,
     email: user.email,

@@ -1,35 +1,22 @@
 /**
  * AI Insights routes — generate and retrieve AI-powered financial insights.
- * Orchestrates Stripe data collection and OpenAI calls.
+ * Orchestrates Stripe data collection and OpenAI calls via service layer.
  */
 
 import { Router, type IRouter } from "express";
-import { db, usersTable, insightsTable } from "@workspace/db";
+import { db, insightsTable } from "@workspace/db";
 import { eq, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../lib/auth";
-import {
-  fetchStripeMetrics,
-  fetchStripeRevenueChart,
-  generateDemoMetrics,
-  generateDemoRevenueChart,
-  type CompanyType,
-} from "../services/stripeService";
-import { generateAIInsights, generateWeeklyActions } from "../services/insightsService";
+import { isLiveMode, resolveCompanyType } from "../lib/userHelpers";
+import { fetchStripeMetrics, fetchStripeRevenueChart, generateDemoMetrics, generateDemoRevenueChart } from "../services/stripe";
+import { generateAIInsights, generateWeeklyActions } from "../services/insights";
 
 const router: IRouter = Router();
 
 router.use(requireAuth);
 
-/** Returns true when the user should use live Stripe data */
-function isLiveMode(user: Express.Request["user"]): boolean {
-  return !user.demoMode && !!user.stripeConnected && !!user.stripeApiKey;
-}
-
-/**
- * Resolve metrics and chart data for the current user.
- * Respects demo mode and company type.
- */
-async function getMetricsForUser(user: Express.Request["user"]) {
+/** Resolve metrics and chart data for the current user (live or demo). */
+async function loadMetrics(user: Express.Request["user"]) {
   if (isLiveMode(user)) {
     const [metrics, chartData] = await Promise.all([
       fetchStripeMetrics(user.stripeApiKey!),
@@ -38,13 +25,14 @@ async function getMetricsForUser(user: Express.Request["user"]) {
     return { metrics, chartData };
   }
 
-  // Demo mode: use the selected company archetype
-  const companyType = (user.demoCompanyType as CompanyType) || "saas";
+  const companyType = resolveCompanyType(user);
   return {
-    metrics: generateDemoMetrics(companyType),
+    metrics:   generateDemoMetrics(companyType),
     chartData: generateDemoRevenueChart(companyType),
   };
 }
+
+const MAX_INSIGHTS_PER_USER = 10;
 
 /** GET /api/insights/latest — retrieve stored insights (most recent) */
 router.get("/latest", async (req, res) => {
@@ -58,11 +46,10 @@ router.get("/latest", async (req, res) => {
     .limit(1);
 
   if (!rows[0]) {
-    // Return empty structure when no insights have been generated yet
     res.json({
-      forecast: { summary: "", months: [] },
-      risks: { summary: "", items: [] },
-      opportunities: { summary: "", items: [] },
+      forecast:           { summary: "", months: [] },
+      risks:              { summary: "", items: [] },
+      opportunities:      { summary: "", items: [] },
       recommendedActions: { summary: "", items: [] },
       generatedAt: null,
     });
@@ -72,29 +59,23 @@ router.get("/latest", async (req, res) => {
   res.json(rows[0].insightsData);
 });
 
-/** POST /api/insights/generate — call OpenAI and store fresh insights */
+/** POST /api/insights/generate — call OpenAI and persist fresh insights */
 router.post("/generate", async (req, res) => {
   const { user } = req;
-
-  const { metrics, chartData } = await getMetricsForUser(user);
+  const { metrics, chartData } = await loadMetrics(user);
   const insights = await generateAIInsights(metrics, chartData);
 
-  // Persist to DB
-  await db.insert(insightsTable).values({
-    userId: user.id,
-    insightsData: insights,
-  });
+  await db.insert(insightsTable).values({ userId: user.id, insightsData: insights });
 
-  // Prune old records — keep the 10 most recent per user
+  // Keep only the most recent N records per user to avoid unbounded growth
   const all = await db
     .select({ id: insightsTable.id })
     .from(insightsTable)
     .where(eq(insightsTable.userId, user.id))
     .orderBy(desc(insightsTable.generatedAt));
 
-  if (all.length > 10) {
-    const idsToDelete = all.slice(10).map((r) => r.id);
-    // Single batch delete instead of looping
+  if (all.length > MAX_INSIGHTS_PER_USER) {
+    const idsToDelete = all.slice(MAX_INSIGHTS_PER_USER).map((r) => r.id);
     await db.delete(insightsTable).where(inArray(insightsTable.id, idsToDelete));
   }
 
@@ -104,7 +85,7 @@ router.post("/generate", async (req, res) => {
 /** POST /api/insights/weekly-actions — generate this week's priorities */
 router.post("/weekly-actions", async (req, res) => {
   const { user } = req;
-  const { metrics, chartData } = await getMetricsForUser(user);
+  const { metrics, chartData } = await loadMetrics(user);
   const result = await generateWeeklyActions(metrics, chartData);
   res.json(result);
 });

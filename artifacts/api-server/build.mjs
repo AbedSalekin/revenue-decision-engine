@@ -9,6 +9,8 @@ import { rm } from "node:fs/promises";
 globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
+// Workspace root is two levels up from artifacts/api-server/
+const workspaceRoot = path.resolve(artifactDir, "../..");
 
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
@@ -22,6 +24,15 @@ async function buildAll() {
     outdir: distDir,
     outExtension: { ".js": ".mjs" },
     logLevel: "info",
+    // Workspace packages export TypeScript source; their deps live in pnpm's virtual store.
+    // Adding extra lookup paths ensures esbuild can resolve transitive dependencies when
+    // bundling @workspace/* packages directly into the output.
+    nodePaths: [
+      path.join(workspaceRoot, "node_modules"),
+      path.join(workspaceRoot, "node_modules/.pnpm/node_modules"),
+      path.join(workspaceRoot, "server/lib/db/node_modules"),
+      path.join(workspaceRoot, "server/lib/api-zod/node_modules"),
+    ],
     // Some packages may not be bundleable, so we externalize them, we can add more here as needed.
     // Some of the packages below may not be imported or installed, but we're adding them in case they are in the future.
     // Examples of unbundleable packages:

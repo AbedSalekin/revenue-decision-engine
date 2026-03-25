@@ -23,18 +23,28 @@ Full-stack SaaS financial intelligence dashboard for startups. Connects to Strip
 ## Structure
 
 ```text
-artifacts-monorepo/
+workspace/
 ├── artifacts/
-│   ├── api-server/         # Express API server (port from $PORT)
-│   └── ai-cfo/             # React + Vite frontend (port 22558)
-├── lib/
-│   ├── api-spec/           # OpenAPI spec + Orval codegen config
-│   ├── api-client-react/   # Generated React Query hooks
-│   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema + DB connection
-├── pnpm-workspace.yaml
+│   ├── api-server/              # Express API server (port from $PORT)
+│   │   └── src/
+│   │       ├── routes/          # Thin route handlers (auth, stripe, dashboard, insights)
+│   │       ├── services/
+│   │       │   ├── stripe/      # types.ts, demoData.ts, client.ts, index.ts
+│   │       │   └── insights/    # context.ts, index.ts (OpenAI calls)
+│   │       └── lib/             # auth.ts, userHelpers.ts
+│   └── ai-cfo/                  # React + Vite frontend
+│       └── src/
+│           ├── pages/           # dashboard.tsx, insights.tsx (thin orchestrators)
+│           └── components/
+│               ├── dashboard/   # StatCard, Sparkline, RevenueChart, RevenueBreakdown, SkeletonLoaders
+│               └── insights/    # ConfidenceBadge, ImpactBadge, ThinkingLoader, EmptyState, WeeklyPriorities
+├── server/lib/                  # Shared workspace packages
+│   ├── api-spec/                # OpenAPI spec + Orval codegen config
+│   ├── api-client-react/        # Generated React Query hooks
+│   ├── api-zod/                 # Generated Zod schemas from OpenAPI
+│   └── db/                      # Drizzle ORM schema + DB connection
+├── pnpm-workspace.yaml          # packages: artifacts/*, server/lib/*, scripts
 ├── tsconfig.base.json
-├── tsconfig.json
 └── package.json
 ```
 
@@ -72,9 +82,10 @@ All routes are prefixed with `/api`.
 
 ## Services
 
-- `artifacts/api-server/src/services/stripeService.ts` — Stripe data fetching + demo data generation
-- `artifacts/api-server/src/services/insightsService.ts` — OpenAI insight/action generation
+- `artifacts/api-server/src/services/stripe/` — types, demo data, live Stripe client, index re-export
+- `artifacts/api-server/src/services/insights/` — OpenAI context builder (`context.ts`) + AI calls (`index.ts`)
 - `artifacts/api-server/src/lib/auth.ts` — JWT signing, bcrypt, Express middleware
+- `artifacts/api-server/src/lib/userHelpers.ts` — `isLiveMode()` and `resolveCompanyType()` shared helpers
 
 ## Environment Variables
 
@@ -102,10 +113,16 @@ All routes are prefixed with `/api`.
 - `isLiveMode(user)` helper centralises the "use real Stripe vs demo" check in each route file
 - Insight pruning uses a single `inArray` batch delete — never loop-delete
 
+## Build Notes
+
+- esbuild bundles workspace packages directly (no externalize). Extra `nodePaths` in `build.mjs` point to `server/lib/*/node_modules/` and the pnpm virtual store so transitive dependencies resolve correctly.
+- Shared packages live under `server/lib/` but pnpm-workspace.yaml expects `lib/*`. A `lib/` directory at the workspace root contains symlinks (`lib/api-zod -> ../server/lib/api-zod`, etc.) as a compatibility shim.
+- `server/tsconfig.base.json` is a symlink to `../tsconfig.base.json` so that workspace package tsconfigs resolving `../../tsconfig.base.json` still work.
+
 ## Codegen
 
-Run `pnpm --filter @workspace/api-spec run codegen` after changing `lib/api-spec/openapi.yaml`.
+Run `pnpm --filter @workspace/api-spec run codegen` after changing `server/lib/api-spec/openapi.yaml`.
 
 ## Database Migrations
 
-Run `pnpm --filter @workspace/db run push` after changing `lib/db/src/schema/`.
+Run `pnpm --filter @workspace/db run push` after changing `server/lib/db/src/schema/`.

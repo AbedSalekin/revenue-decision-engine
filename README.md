@@ -37,3 +37,8 @@ Most tools show dashboards. They don’t tell you what to do next. This focuses 
 ### AI Insights
 ![Insights](./screenshots/insights.png)
 
+## Architecture
+
+The system processes inputs through an API layer, applies decision logic, and returns optimized revenue recommendations.
+
+![Architecture](docs/architecture.png)

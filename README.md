@@ -26,4 +26,14 @@ Most tools show dashboards. They don’t tell you what to do next. This focuses 
 * OpenAI API
 * Stripe API
 
-## Demo
+## Screenshots
+
+### Landing Page
+![Landing](./screenshots/landing.png)
+
+### Dashboard
+![Dashboard](./screenshots/dashboard.png)
+
+### AI Insights
+![Insights](./screenshots/insights.png)
+

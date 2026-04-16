@@ -154,11 +154,8 @@ importers:
 
   .:
     devDependencies:
-      prettier:
-        specifier: ^3.8.1
-        version: 3.8.1
       typescript:
-        specifier: ~5.9.2
+        specifier: ^5.0.0
         version: 5.9.3
 
   artifacts/ai-cfo:
